@@ -1,0 +1,145 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication and basic info
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      UserRole @default(EMPLOYEE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  profile          UserProfile?
+  timesheets       Timesheet[]
+  vacationRequests VacationRequest[]
+  
+  // Admin relations
+  approvedTimesheets    Timesheet[]       @relation("TimesheetApprover")
+  reviewedVacations     VacationRequest[] @relation("VacationReviewer")
+
+  @@map("users")
+}
+
+// User profile with detailed information
+model UserProfile {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  fullName        String
+  province        String?
+  vacationBalance Decimal @default(0) @db.Decimal(5, 2)
+  accruedDays     Decimal @default(0) @db.Decimal(5, 2)
+  usedDays        Decimal @default(0) @db.Decimal(5, 2)
+  preferences     Json?   @default("{}")
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+// Timesheet model for weekly time tracking
+model Timesheet {
+  id           String          @id @default(cuid())
+  userId       String
+  weekStarting DateTime        @db.Date
+  status       TimesheetStatus @default(DRAFT)
+  totalHours   Decimal         @default(0) @db.Decimal(5, 2)
+  submittedAt  DateTime?
+  approvedAt   DateTime?
+  approvedById String?
+  rejectionReason String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  // Relations
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvedBy   User?             @relation("TimesheetApprover", fields: [approvedById], references: [id])
+  entries      TimesheetEntry[]
+
+  // Ensure one timesheet per user per week
+  @@unique([userId, weekStarting])
+  @@map("timesheets")
+}
+
+// Individual timesheet entries for each day
+model TimesheetEntry {
+  id           String    @id @default(cuid())
+  timesheetId  String
+  workDate     DateTime  @db.Date
+  startTime    String?   // Stored as HH:MM string
+  endTime      String?   // Stored as HH:MM string
+  breakMinutes Int       @default(0)
+  hoursWorked  Decimal   @db.Decimal(4, 2)
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  timesheet Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+
+  @@map("timesheet_entries")
+}
+
+// Vacation request model
+model VacationRequest {
+  id              String               @id @default(cuid())
+  userId          String
+  startDate       DateTime             @db.Date
+  endDate         DateTime             @db.Date
+  requestType     VacationRequestType
+  status          VacationStatus       @default(PENDING)
+  reason          String?
+  daysRequested   Int
+  submittedAt     DateTime             @default(now())
+  reviewedAt      DateTime?
+  reviewedById    String?
+  rejectionReason String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  // Relations
+  user       User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("VacationReviewer", fields: [reviewedById], references: [id])
+
+  @@map("vacation_requests")
+}
+
+// Enums
+enum UserRole {
+  EMPLOYEE
+  MANAGER
+  ADMIN
+}
+
+enum TimesheetStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum VacationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum VacationRequestType {
+  VACATION
+  SICK
+  PERSONAL
+  BEREAVEMENT
+  MATERNITY
+  PATERNITY
+}
