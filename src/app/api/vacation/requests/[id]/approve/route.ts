@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { authenticateRequest, hasRole } from '@/lib/auth'
 import { z } from 'zod'
+import { sendVacationRequestStatusNotification } from '@/lib/email'
 
 const approveVacationRequestSchema = z.object({
   action: z.enum(['APPROVE', 'REJECT']),
@@ -77,7 +78,7 @@ export async function POST(
     let updatedProfile = null
     if (isApproval && existingRequest.requestType === 'VACATION') {
       const currentBalance = existingRequest.user.profile?.vacationBalance || 0
-      const newBalance = currentBalance - existingRequest.daysRequested
+      const newBalance = Number(currentBalance) - existingRequest.daysRequested
 
       if (newBalance < 0) {
         return NextResponse.json(
@@ -98,9 +99,8 @@ export async function POST(
       where: { id: requestId },
       data: {
         status: newStatus,
-        reviewedBy: user.id,
+        reviewedBy: { connect: { id: user.id } },
         reviewedAt: new Date(),
-        reviewComments: validatedData.reviewComments
       },
       include: {
         user: {
@@ -124,25 +124,44 @@ export async function POST(
       }
     })
 
-    // TODO: Send email notification to employee
-    console.log('Vacation request reviewed:', {
-      requestId: updatedRequest.id,
-      employee: updatedRequest.user.email,
-      action: validatedData.action,
-      reviewer: user.email,
-      startDate: updatedRequest.startDate,
-      endDate: updatedRequest.endDate,
-      type: updatedRequest.requestType,
-      daysRequested: updatedRequest.daysRequested,
-      newVacationBalance: updatedProfile?.vacationBalance
-    })
+    // Send email notification to employee
+    try {
+      await sendVacationRequestStatusNotification(
+        existingRequest.user.email,
+        validatedData.action as 'APPROVED' | 'REJECTED',
+        {
+          requestType: updatedRequest.requestType,
+          startDate: updatedRequest.startDate.toISOString(),
+          endDate: updatedRequest.endDate.toISOString(),
+          daysRequested: updatedRequest.daysRequested,
+          approverName: user.profile?.fullName || 'Manager',
+          approvedAt: isApproval ? updatedRequest.reviewedAt?.toISOString() : undefined,
+          reviewedAt: updatedRequest.reviewedAt?.toISOString(),
+          reviewComments: validatedData.reviewComments,
+          newVacationBalance: updatedProfile?.vacationBalance !== undefined ? Number(updatedProfile.vacationBalance) : undefined
+        }
+      )
 
-    const actionMessage = isApproval ? 'approved' : 'rejected'
-    
+      console.log('Vacation request reviewed:', {
+        requestId: updatedRequest.id,
+        employee: updatedRequest.user.email,
+        action: validatedData.action,
+        reviewer: user.email,
+        startDate: updatedRequest.startDate,
+        endDate: updatedRequest.endDate,
+        type: updatedRequest.requestType,
+        daysRequested: updatedRequest.daysRequested,
+        newVacationBalance: updatedProfile?.vacationBalance
+      })
+    } catch (emailError) {
+      console.error('Failed to send email notification:', emailError)
+      // Don't fail the request if email fails
+    }
+
     return NextResponse.json({
       success: true,
       data: updatedRequest,
-      message: `Vacation request ${actionMessage} successfully`
+      message: `Vacation request ${validatedData.action.toLowerCase()}d successfully`
     })
 
   } catch (error) {

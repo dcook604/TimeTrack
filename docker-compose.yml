@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: timetracker-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: timetracker
+      POSTGRES_USER: timetracker
+      POSTGRES_PASSWORD: timetracker123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U timetracker -d timetracker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Timetracker Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: timetracker-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Database
+      DATABASE_URL: postgresql://timetracker:timetracker123@postgres:5432/timetracker?schema=public
+      
+      # JWT
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      
+      # NextAuth
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: your-super-secret-nextauth-key-change-in-production
+      
+      # App Configuration
+      NODE_ENV: production
+      
+      # Email Configuration (for development - using console logging)
+      SMTP_HOST: localhost
+      SMTP_PORT: 587
+      SMTP_USER: ""
+      SMTP_PASS: ""
+      SMTP_FROM: noreply@timetracker.local
+      
+      # App Settings
+      APP_NAME: TimeTracker
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./prisma:/app/prisma:ro
+    command: >
+      sh -c "
+        npx prisma migrate deploy &&
+        npx prisma db seed &&
+        node server.js
+      "
+
+volumes:
+  postgres_data: 

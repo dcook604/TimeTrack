@@ -13,6 +13,88 @@ export interface ApiResponse<T = any> {
   }
 }
 
+export interface TimesheetEntry {
+  workDate: string
+  startTime?: string
+  endTime?: string
+  breakMinutes: number
+  hoursWorked: number
+  notes?: string
+}
+
+export interface CreateTimesheetData {
+  weekStarting: string
+  entries: TimesheetEntry[]
+}
+
+export interface Timesheet {
+  id: string
+  userId: string
+  weekStarting: string
+  status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED'
+  totalHours: number
+  submittedAt?: string
+  approvedAt?: string
+  approvedById?: string
+  rejectionReason?: string
+  createdAt: string
+  updatedAt: string
+  entries: TimesheetEntry[]
+  approvedBy?: {
+    id: string
+    email: string
+    profile: {
+      fullName: string
+    }
+  }
+}
+
+export interface VacationRequest {
+  id: string
+  userId: string
+  startDate: string
+  endDate: string
+  requestType: 'VACATION' | 'SICK' | 'PERSONAL' | 'BEREAVEMENT' | 'MATERNITY' | 'PATERNITY'
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'
+  reason?: string
+  daysRequested: number
+  submittedAt: string
+  reviewedAt?: string
+  reviewedById?: string
+  rejectionReason?: string
+  createdAt: string
+  updatedAt: string
+  user?: {
+    id: string
+    email: string
+    profile: {
+      fullName: string
+      province: string
+    }
+  }
+  reviewedBy?: {
+    id: string
+    email: string
+    profile: {
+      fullName: string
+    }
+  }
+}
+
+export interface CreateVacationRequestData {
+  startDate: string
+  endDate: string
+  requestType: 'VACATION' | 'SICK' | 'PERSONAL' | 'BEREAVEMENT' | 'MATERNITY' | 'PATERNITY'
+  reason?: string
+}
+
+export interface UpdateVacationRequestData {
+  startDate?: string
+  endDate?: string
+  requestType?: 'VACATION' | 'SICK' | 'PERSONAL' | 'BEREAVEMENT' | 'MATERNITY' | 'PATERNITY'
+  reason?: string
+}
+
 class ApiClient {
   private baseUrl: string
 
@@ -88,7 +170,7 @@ class ApiClient {
     limit?: number
     status?: string
     userId?: string
-  }) {
+  }): Promise<ApiResponse<Timesheet[]>> {
     const searchParams = new URLSearchParams()
     if (params?.page) searchParams.set('page', params.page.toString())
     if (params?.limit) searchParams.set('limit', params.limit.toString())
@@ -96,48 +178,43 @@ class ApiClient {
     if (params?.userId) searchParams.set('userId', params.userId)
 
     const query = searchParams.toString()
-    return this.request(`/timesheets${query ? `?${query}` : ''}`)
+    return this.request<Timesheet[]>(`/timesheets${query ? `?${query}` : ''}`)
   }
 
-  async getTimesheet(id: string) {
-    return this.request(`/timesheets/${id}`)
+  async getTimesheet(id: string): Promise<ApiResponse<Timesheet>> {
+    return this.request<Timesheet>(`/timesheets/${id}`)
   }
 
-  async createTimesheet(data: {
-    weekEnding: string
-    entries: Array<{
-      date: string
-      hoursWorked: number
-      description: string
-    }>
-  }) {
-    return this.request('/timesheets', {
+  async createTimesheet(data: CreateTimesheetData): Promise<ApiResponse<Timesheet>> {
+    return this.request<Timesheet>('/timesheets', {
       method: 'POST',
       body: JSON.stringify(data)
     })
   }
 
   async updateTimesheet(id: string, data: {
-    entries: Array<{
-      date: string
-      hoursWorked: number
-      description: string
-    }>
-  }) {
-    return this.request(`/timesheets/${id}`, {
+    entries: TimesheetEntry[]
+  }): Promise<ApiResponse<Timesheet>> {
+    return this.request<Timesheet>(`/timesheets/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data)
     })
   }
 
-  async deleteTimesheet(id: string) {
-    return this.request(`/timesheets/${id}`, {
+  async deleteTimesheet(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/timesheets/${id}`, {
       method: 'DELETE'
     })
   }
 
-  async approveTimesheet(id: string, action: 'APPROVE' | 'REJECT', comments?: string) {
-    return this.request(`/timesheets/${id}/approve`, {
+  async submitTimesheet(id: string): Promise<ApiResponse<Timesheet>> {
+    return this.request<Timesheet>(`/timesheets/${id}/submit`, {
+      method: 'POST'
+    })
+  }
+
+  async approveTimesheet(id: string, action: 'APPROVE' | 'REJECT', comments?: string): Promise<ApiResponse<Timesheet>> {
+    return this.request<Timesheet>(`/timesheets/${id}/approve`, {
       method: 'POST',
       body: JSON.stringify({
         action,
@@ -152,7 +229,7 @@ class ApiClient {
     limit?: number
     status?: string
     userId?: string
-  }) {
+  }): Promise<ApiResponse<VacationRequest[]>> {
     const searchParams = new URLSearchParams()
     if (params?.page) searchParams.set('page', params.page.toString())
     if (params?.limit) searchParams.set('limit', params.limit.toString())
@@ -160,50 +237,107 @@ class ApiClient {
     if (params?.userId) searchParams.set('userId', params.userId)
 
     const query = searchParams.toString()
-    return this.request(`/vacation/requests${query ? `?${query}` : ''}`)
+    return this.request<VacationRequest[]>(`/vacation/requests${query ? `?${query}` : ''}`)
   }
 
-  async getVacationRequest(id: string) {
-    return this.request(`/vacation/requests/${id}`)
+  async getVacationRequest(id: string): Promise<ApiResponse<VacationRequest>> {
+    return this.request<VacationRequest>(`/vacation/requests/${id}`)
   }
 
-  async createVacationRequest(data: {
-    startDate: string
-    endDate: string
-    requestType: 'VACATION' | 'SICK' | 'PERSONAL' | 'BEREAVEMENT' | 'MATERNITY' | 'PATERNITY'
-    reason?: string
-  }) {
-    return this.request('/vacation/requests', {
+  async createVacationRequest(data: CreateVacationRequestData): Promise<ApiResponse<VacationRequest>> {
+    return this.request<VacationRequest>('/vacation/requests', {
       method: 'POST',
       body: JSON.stringify(data)
     })
   }
 
-  async updateVacationRequest(id: string, data: {
-    startDate?: string
-    endDate?: string
-    requestType?: 'VACATION' | 'SICK' | 'PERSONAL' | 'BEREAVEMENT' | 'MATERNITY' | 'PATERNITY'
-    reason?: string
-  }) {
-    return this.request(`/vacation/requests/${id}`, {
+  async updateVacationRequest(id: string, data: UpdateVacationRequestData): Promise<ApiResponse<VacationRequest>> {
+    return this.request<VacationRequest>(`/vacation/requests/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data)
     })
   }
 
-  async deleteVacationRequest(id: string) {
-    return this.request(`/vacation/requests/${id}`, {
+  async deleteVacationRequest(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/vacation/requests/${id}`, {
       method: 'DELETE'
     })
   }
 
-  async approveVacationRequest(id: string, action: 'APPROVE' | 'REJECT', comments?: string) {
-    return this.request(`/vacation/requests/${id}/approve`, {
+  async approveVacationRequest(id: string, action: 'APPROVE' | 'REJECT', comments?: string): Promise<ApiResponse<VacationRequest>> {
+    return this.request<VacationRequest>(`/vacation/requests/${id}/approve`, {
       method: 'POST',
       body: JSON.stringify({
         action,
         reviewComments: comments
       })
+    })
+  }
+
+  // Dashboard methods
+  async getDashboard(): Promise<ApiResponse<any>> {
+    return this.request('/dashboard')
+  }
+
+  // Profile methods
+  async getProfile(): Promise<ApiResponse<any>> {
+    return this.request('/profile')
+  }
+
+  async updateProfile(data: {
+    fullName?: string
+    province?: string
+    preferences?: {
+      emailNotifications?: boolean
+      timeFormat?: '12h' | '24h'
+      theme?: 'light' | 'dark'
+    }
+  }): Promise<ApiResponse<any>> {
+    return this.request('/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
+  // User management methods (Admin only)
+  async getUsers(): Promise<ApiResponse<any[]>> {
+    return this.request('/users')
+  }
+
+  async getUser(id: string): Promise<ApiResponse<any>> {
+    return this.request(`/users/${id}`)
+  }
+
+  async createUser(data: {
+    email: string
+    password: string
+    fullName: string
+    province: string
+    role: 'EMPLOYEE' | 'MANAGER' | 'ADMIN'
+    vacationBalance: number
+  }): Promise<ApiResponse<any>> {
+    return this.request('/users', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async updateUser(id: string, data: {
+    email?: string
+    fullName?: string
+    province?: string
+    role?: 'EMPLOYEE' | 'MANAGER' | 'ADMIN'
+    vacationBalance?: number
+  }): Promise<ApiResponse<any>> {
+    return this.request(`/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async deleteUser(id: string): Promise<ApiResponse<void>> {
+    return this.request(`/users/${id}`, {
+      method: 'DELETE'
     })
   }
 }

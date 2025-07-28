@@ -1,204 +1,380 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Calendar, Send, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle, Calendar, Clock, User, Info } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useVacationRequests } from "@/hooks/useVacationRequests";
+import { useToast } from "@/hooks/useToast";
+import { useFormValidation } from "@/hooks/useFormValidation";
+import { vacationRequestSchema } from "@/lib/validation-schemas";
+import { validateVacationRequestData, transformVacationRequestData } from "@/lib/data-integrity";
+import FormField from "@/components/ui/FormField";
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
 interface VacationRequestFormProps {
-  onSubmit?: (data: any) => void;
+  onSuccess?: (request: any) => void;
   onCancel?: () => void;
-  availableDays?: number;
 }
 
-const VacationRequestForm = ({
-  onSubmit,
+const VacationRequestForm: React.FC<VacationRequestFormProps> = ({
+  onSuccess,
   onCancel,
-  availableDays = 10,
-}: VacationRequestFormProps) => {
-  const [formData, setFormData] = useState({
-    startDate: "",
-    endDate: "",
-    type: "vacation",
-    reason: "",
-    notes: "",
+}) => {
+  const { user } = useAuth();
+  const { createVacationRequest, loading, error, clearError } = useVacationRequests();
+  const { success: showSuccess, error: showError, warning: showWarning } = useToast();
+
+  const {
+    data,
+    errors,
+    isValid,
+    isDirty,
+    touched,
+    updateField,
+    touchField,
+    validateForm,
+    handleFieldChange,
+    handleFieldBlur,
+    getFieldError,
+    isFieldTouched,
+    hasFieldError,
+    reset,
+  } = useFormValidation({
+    schema: vacationRequestSchema,
+    initialData: {
+      requestType: 'VACATION',
+      startDate: '',
+      endDate: '',
+      reason: '',
+    },
+    validateOnChange: true,
+    validateOnBlur: true,
+    showToastErrors: true,
   });
 
-  const [calculatedDays, setCalculatedDays] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dataIntegrityErrors, setDataIntegrityErrors] = useState<string[]>([]);
+  const [dataIntegrityWarnings, setDataIntegrityWarnings] = useState<string[]>([]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit?.({
-      ...formData,
-      daysRequested: calculatedDays,
-      submittedDate: new Date().toISOString(),
-      status: "pending",
-    });
+  // Calculate days requested
+  const calculateDaysRequested = () => {
+    if (!data.startDate || !data.endDate) return 0;
+    const startDate = new Date(data.startDate);
+    const endDate = new Date(data.endDate);
+    const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(0, daysDiff + 1); // Include both start and end dates
   };
 
-  const calculateDays = () => {
-    if (formData.startDate && formData.endDate) {
-      const start = new Date(formData.startDate);
-      const end = new Date(formData.endDate);
-      const diffTime = Math.abs(end.getTime() - start.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-      setCalculatedDays(diffDays);
+  const daysRequested = calculateDaysRequested();
+  const availableBalance = user?.profile?.vacationBalance || 0;
+
+  // Validate data integrity
+  useEffect(() => {
+    if (isDirty) {
+      const integrityCheck = validateVacationRequestData(data);
+      setDataIntegrityErrors(integrityCheck.errors);
+      setDataIntegrityWarnings(integrityCheck.warnings);
+    }
+  }, [data, isDirty]);
+
+  // Show warnings as toast notifications
+  useEffect(() => {
+    dataIntegrityWarnings.forEach(warning => {
+      showWarning('Warning', warning);
+    });
+  }, [dataIntegrityWarnings, showWarning]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearError();
+
+    // Validate form
+    const { isValid: formValid, errors: formErrors } = validateForm();
+    
+    if (!formValid) {
+      showError('Please fix the validation errors', Object.values(formErrors).join(', '));
+      return;
+    }
+
+    // Check data integrity
+    if (dataIntegrityErrors.length > 0) {
+      showError('Data validation failed', dataIntegrityErrors.join(', '));
+      return;
+    }
+
+    // Check vacation balance
+    if (daysRequested > availableBalance) {
+      showError('Insufficient vacation balance', `You have ${availableBalance} days available, but requested ${daysRequested} days.`);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Transform and sanitize data
+      const transformedData = transformVacationRequestData({
+        ...data,
+        daysRequested,
+        availableBalance,
+      });
+
+      const response = await createVacationRequest(transformedData);
+
+      if (response.success && response.data) {
+        showSuccess('Vacation request submitted successfully', 'Your request has been submitted for approval.');
+        onSuccess?.(response.data);
+        reset();
+      } else {
+        const errorMessage = response.error || 'Failed to submit vacation request';
+        showError('Submission failed', errorMessage);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      showError('Submission failed', errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  React.useEffect(() => {
-    calculateDays();
-  }, [formData.startDate, formData.endDate]);
+  const handleCancel = () => {
+    if (isDirty) {
+      if (confirm('Are you sure you want to cancel? Your changes will be lost.')) {
+        reset();
+        onCancel?.();
+      }
+    } else {
+      onCancel?.();
+    }
+  };
 
-  const vacationTypes = [
-    { value: "vacation", label: "Annual Vacation" },
-    { value: "personal", label: "Personal Day" },
-    { value: "sick", label: "Sick Leave" },
-    { value: "emergency", label: "Emergency Leave" },
-    { value: "bereavement", label: "Bereavement Leave" },
+  const requestTypeOptions = [
+    { value: 'VACATION', label: 'Vacation' },
+    { value: 'SICK', label: 'Sick Leave' },
+    { value: 'PERSONAL', label: 'Personal Leave' },
+    { value: 'BEREAVEMENT', label: 'Bereavement' },
+    { value: 'MATERNITY', label: 'Maternity Leave' },
+    { value: 'PATERNITY', label: 'Paternity Leave' },
   ];
 
+  const getRequestTypeColor = (type: string) => {
+    switch (type) {
+      case 'VACATION': return 'bg-blue-100 text-blue-800';
+      case 'SICK': return 'bg-red-100 text-red-800';
+      case 'PERSONAL': return 'bg-purple-100 text-purple-800';
+      case 'BEREAVEMENT': return 'bg-gray-100 text-gray-800';
+      case 'MATERNITY': return 'bg-pink-100 text-pink-800';
+      case 'PATERNITY': return 'bg-indigo-100 text-indigo-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
-    <Card className="w-full max-w-2xl mx-auto bg-card">
-      <CardHeader>
+    <div className="bg-background min-h-screen p-6">
+      <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex justify-between items-center">
-          <CardTitle className="text-xl font-bold flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Request Time Off
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline">{availableDays} days available</Badge>
-            {onCancel && (
-              <Button variant="ghost" size="sm" onClick={onCancel}>
-                <X className="h-4 w-4" />
-              </Button>
-            )}
+          <div>
+            <h1 className="text-3xl font-bold">Request Vacation</h1>
+            <p className="text-muted-foreground mt-1">
+              Submit a vacation request for approval
+            </p>
           </div>
+          <Button variant="outline" onClick={handleCancel}>
+            Cancel
+          </Button>
         </div>
-      </CardHeader>
-      <CardContent>
+
+        {/* Error Alert */}
+        {error && (
+          <Alert className="border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              {error}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Data Integrity Errors */}
+        {dataIntegrityErrors.length > 0 && (
+          <Alert className="border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              <ul className="list-disc list-inside space-y-1">
+                {dataIntegrityErrors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* User Info Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Employee Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="startDate">Start Date</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={formData.startDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, startDate: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="endDate">End Date</Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={formData.endDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, endDate: e.target.value })
-                }
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="type">Type of Leave</Label>
-            <Select
-              value={formData.type}
-              onValueChange={(value) =>
-                setFormData({ ...formData, type: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {vacationTypes.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="reason">Reason (Optional)</Label>
-            <Input
-              id="reason"
-              value={formData.reason}
-              onChange={(e) =>
-                setFormData({ ...formData, reason: e.target.value })
-              }
-              placeholder="Brief reason for time off"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="notes">Additional Notes</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) =>
-                setFormData({ ...formData, notes: e.target.value })
-              }
-              placeholder="Any additional information for your manager"
-              rows={3}
-            />
-          </div>
-
-          {calculatedDays > 0 && (
-            <div className="p-4 bg-muted rounded-lg">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="font-medium">
-                    Days Requested: {calculatedDays}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Remaining after approval: {availableDays - calculatedDays}{" "}
-                    days
-                  </p>
+                  <label className="text-sm font-medium">Employee</label>
+                  <p className="text-muted-foreground">{user?.profile?.fullName || 'Unknown'}</p>
                 </div>
-                {calculatedDays > availableDays && (
-                  <Badge variant="destructive">Exceeds available days</Badge>
-                )}
+                <div>
+                  <label className="text-sm font-medium">Available Balance</label>
+                  <p className="text-muted-foreground">{availableBalance} days</p>
+                </div>
               </div>
-            </div>
-          )}
+            </CardContent>
+          </Card>
 
-          <div className="flex justify-end gap-4">
-            {onCancel && (
-              <Button type="button" variant="outline" onClick={onCancel}>
+          {/* Request Details Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Request Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                label="Request Type"
+                name="requestType"
+                type="select"
+                value={data.requestType}
+                onChange={(value) => handleFieldChange('requestType', value)}
+                onBlur={() => handleFieldBlur('requestType')}
+                required
+                error={getFieldError('requestType')}
+                touched={isFieldTouched('requestType')}
+                options={requestTypeOptions}
+                helpText="Select the type of leave you are requesting"
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  label="Start Date"
+                  name="startDate"
+                  type="date"
+                  value={data.startDate}
+                  onChange={(value) => handleFieldChange('startDate', value)}
+                  onBlur={() => handleFieldBlur('startDate')}
+                  required
+                  error={getFieldError('startDate')}
+                  touched={isFieldTouched('startDate')}
+                  helpText="Select the first day of your leave"
+                />
+
+                <FormField
+                  label="End Date"
+                  name="endDate"
+                  type="date"
+                  value={data.endDate}
+                  onChange={(value) => handleFieldChange('endDate', value)}
+                  onBlur={() => handleFieldBlur('endDate')}
+                  required
+                  error={getFieldError('endDate')}
+                  touched={isFieldTouched('endDate')}
+                  helpText="Select the last day of your leave"
+              />
+            </div>
+
+              <FormField
+                label="Reason"
+                name="reason"
+                type="textarea"
+                value={data.reason}
+                onChange={(value) => handleFieldChange('reason', value)}
+                onBlur={() => handleFieldBlur('reason')}
+                required
+                error={getFieldError('reason')}
+                touched={isFieldTouched('reason')}
+                placeholder="Please provide a detailed reason for your request..."
+                rows={4}
+                helpText="Provide a clear explanation for your leave request"
+              />
+            </CardContent>
+          </Card>
+
+          {/* Summary Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5" />
+                Request Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-3 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{daysRequested}</div>
+                  <div className="text-sm text-muted-foreground">Days Requested</div>
+          </div>
+                <div className="text-center p-3 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">{availableBalance}</div>
+                  <div className="text-sm text-muted-foreground">Available Balance</div>
+          </div>
+                <div className="text-center p-3 bg-muted rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{availableBalance - daysRequested}</div>
+                  <div className="text-sm text-muted-foreground">Remaining After</div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <span className="font-medium">Request Type:</span>
+                <Badge className={getRequestTypeColor(data.requestType)}>
+                  {requestTypeOptions.find(opt => opt.value === data.requestType)?.label}
+                </Badge>
+            </div>
+
+              {daysRequested > availableBalance && (
+                <Alert className="border-red-200 bg-red-50">
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-800">
+                    You are requesting more days than your available balance.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {daysRequested > 0 && daysRequested <= availableBalance && (
+                <Alert className="border-green-200 bg-green-50">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    Your request is within your available balance.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Submit Button */}
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={handleCancel}>
                 Cancel
               </Button>
-            )}
             <Button
               type="submit"
-              className="flex items-center gap-2"
-              disabled={calculatedDays > availableDays || calculatedDays === 0}
+              disabled={isSubmitting || loading || !isValid || daysRequested > availableBalance}
             >
-              <Send className="h-4 w-4" />
+              {isSubmitting ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <>
+                  <Calendar className="h-4 w-4 mr-2" />
               Submit Request
+                </>
+              )}
             </Button>
           </div>
         </form>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { authenticateRequest, hasRole } from '@/lib/auth'
 import { z } from 'zod'
+import { sendTimesheetStatusNotification } from '@/lib/email'
 
 const approveTimesheetSchema = z.object({
-  action: z.enum(['approve', 'reject']),
-  rejectionReason: z.string().optional()
+  action: z.enum(['APPROVE', 'REJECT']),
+  approverComments: z.string().optional()
 })
 
 // POST /api/timesheets/[id]/approve - Approve or reject timesheet
@@ -71,12 +72,12 @@ export async function POST(
       approvedById: user.id
     }
 
-    if (validatedData.action === 'approve') {
+    if (validatedData.action === 'APPROVE') {
       updateData.status = 'APPROVED'
       updateData.approvedAt = new Date()
     } else {
       updateData.status = 'REJECTED'
-      updateData.rejectionReason = validatedData.rejectionReason || 'No reason provided'
+      updateData.rejectionReason = validatedData.approverComments || 'No reason provided'
     }
 
     const updatedTimesheet = await prisma.timesheet.update({
@@ -107,19 +108,37 @@ export async function POST(
       }
     })
 
-    // TODO: Send email notification to employee
-    console.log(`Timesheet ${validatedData.action}d:`, {
-      timesheetId: params.id,
-      employee: existingTimesheet.user.email,
-      approver: user.email,
-      action: validatedData.action,
-      rejectionReason: validatedData.rejectionReason
-    })
+    // Send email notification to employee
+    try {
+      await sendTimesheetStatusNotification(
+        existingTimesheet.user.email,
+        validatedData.action as 'APPROVED' | 'REJECTED',
+        {
+          weekEnding: new Date(updatedTimesheet.weekStarting).toLocaleDateString(),
+          totalHours: Number(updatedTimesheet.totalHours),
+          approverName: user.profile?.fullName || 'Manager',
+          approvedAt: updateData.approvedAt?.toISOString(),
+          reviewedAt: updateData.reviewedAt?.toISOString(),
+          approverComments: validatedData.approverComments
+        }
+      )
+
+      console.log(`Timesheet ${validatedData.action.toLowerCase()}d:`, {
+        timesheetId: params.id,
+        employee: existingTimesheet.user.email,
+        approver: user.email,
+        action: validatedData.action,
+        rejectionReason: validatedData.approverComments
+      })
+    } catch (emailError) {
+      console.error('Failed to send email notification:', emailError)
+      // Don't fail the request if email fails
+    }
 
     return NextResponse.json({
       success: true,
       data: updatedTimesheet,
-      message: `Timesheet ${validatedData.action}d successfully`
+      message: `Timesheet ${validatedData.action.toLowerCase()}d successfully`
     })
 
   } catch (error) {

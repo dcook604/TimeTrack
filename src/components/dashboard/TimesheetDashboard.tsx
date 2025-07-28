@@ -102,10 +102,10 @@ const TimesheetDashboard = ({
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats.currentWeekHours}h
+                {stats.currentWeekHours || 0}h
               </div>
               <p className="text-xs text-muted-foreground">
-                {40 - stats.currentWeekHours}h remaining
+                {40 - (stats.currentWeekHours || 0)}h remaining
               </p>
             </CardContent>
           </Card>
@@ -116,7 +116,7 @@ const TimesheetDashboard = ({
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.monthlyHours}h</div>
+              <div className="text-2xl font-bold">{stats.monthlyHours || 0}h</div>
               <p className="text-xs text-muted-foreground">
                 +12% from last month
               </p>
@@ -132,7 +132,7 @@ const TimesheetDashboard = ({
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats.pendingTimesheets}
+                {stats.pendingTimesheets || 0}
               </div>
               <p className="text-xs text-muted-foreground">Awaiting approval</p>
             </CardContent>
@@ -145,7 +145,7 @@ const TimesheetDashboard = ({
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                {stats.overdueTimesheets}
+                {stats.overdueTimesheets || 0}
               </div>
               <p className="text-xs text-muted-foreground">Needs attention</p>
             </CardContent>

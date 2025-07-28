@@ -101,8 +101,13 @@ const TimesheetFormNew = ({ onSubmit, initialData }: TimesheetFormProps) => {
         return;
       }
 
+      // Convert week ending to week starting (Monday)
+      const weekEndingDate = new Date(formData.weekEnding);
+      const weekStartingDate = new Date(weekEndingDate);
+      weekStartingDate.setDate(weekEndingDate.getDate() - 6); // Go back 6 days to get Monday
+
       const response = await apiClient.createTimesheet({
-        weekEnding: formData.weekEnding,
+        weekStarting: weekStartingDate.toISOString().split('T')[0],
         entries: validEntries
       });
 

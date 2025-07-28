@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Eye,
   Edit,
@@ -20,68 +21,31 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  RefreshCw,
 } from "lucide-react";
-
-interface Timesheet {
-  id: string;
-  weekStarting: string;
-  weekEnding: string;
-  totalHours: number;
-  status: "draft" | "submitted" | "approved" | "rejected";
-  submittedDate?: string;
-  approvedDate?: string;
-  rejectionReason?: string;
-}
+import { useTimesheets } from "@/hooks/useTimesheets";
+import { Timesheet } from "@/lib/api-client";
 
 interface TimesheetListProps {
-  timesheets?: Timesheet[];
   onView?: (id: string) => void;
   onEdit?: (id: string) => void;
   onDownload?: (id: string) => void;
 }
 
 const TimesheetList = ({
-  timesheets = [
-    {
-      id: "TS-001",
-      weekStarting: "2024-01-15",
-      weekEnding: "2024-01-19",
-      totalHours: 40,
-      status: "approved",
-      submittedDate: "2024-01-22",
-      approvedDate: "2024-01-23",
-    },
-    {
-      id: "TS-002",
-      weekStarting: "2024-01-22",
-      weekEnding: "2024-01-26",
-      totalHours: 38.5,
-      status: "submitted",
-      submittedDate: "2024-01-29",
-    },
-    {
-      id: "TS-003",
-      weekStarting: "2024-01-29",
-      weekEnding: "2024-02-02",
-      totalHours: 42,
-      status: "rejected",
-      submittedDate: "2024-02-05",
-      rejectionReason: "Missing break times for Tuesday",
-    },
-    {
-      id: "TS-004",
-      weekStarting: "2024-02-05",
-      weekEnding: "2024-02-09",
-      totalHours: 35,
-      status: "draft",
-    },
-  ],
   onView,
   onEdit,
   onDownload,
 }: TimesheetListProps) => {
+  const { timesheets, loading, error, getTimesheets, clearError } = useTimesheets();
+
+  useEffect(() => {
+    // Load timesheets when component mounts
+    getTimesheets();
+  }, [getTimesheets]);
+
   const getStatusIcon = (status: string) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case "approved":
         return <CheckCircle className="h-4 w-4 text-green-600" />;
       case "rejected":
@@ -96,7 +60,7 @@ const TimesheetList = ({
   const getStatusVariant = (
     status: string,
   ): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case "approved":
         return "default";
       case "rejected":
@@ -108,40 +72,89 @@ const TimesheetList = ({
     }
   };
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-CA", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const getWeekEnding = (weekStarting: string) => {
+    const startDate = new Date(weekStarting);
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 4); // Friday
+    return endDate.toISOString().split('T')[0];
+  };
+
+  const handleRefresh = () => {
+    clearError();
+    getTimesheets();
+  };
+
+  if (loading && timesheets.length === 0) {
+    return (
+      <div className="bg-background min-h-screen p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex justify-center items-center h-64">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-6 w-6 animate-spin" />
+              <span>Loading timesheets...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-background min-h-screen p-6">
-      <Card className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">My Timesheets</h1>
+            <p className="text-muted-foreground mt-1">
+              View and manage your timesheet submissions.
+            </p>
+          </div>
+          <Button onClick={handleRefresh} disabled={loading} variant="outline">
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+
+        {/* Error Alert */}
+        {error && (
+          <Alert className="border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              {error}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <Card>
         <CardHeader>
-          <CardTitle className="text-2xl font-bold flex items-center gap-2">
-            <Clock className="h-6 w-6" />
-            My Timesheets
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Timesheet History
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="flex gap-2">
-                <Badge variant="outline">Total: {timesheets.length}</Badge>
-                <Badge variant="default">
-                  Approved:{" "}
-                  {timesheets.filter((t) => t.status === "approved").length}
-                </Badge>
-                <Badge variant="secondary">
-                  Pending:{" "}
-                  {timesheets.filter((t) => t.status === "submitted").length}
-                </Badge>
-                <Badge variant="destructive">
-                  Rejected:{" "}
-                  {timesheets.filter((t) => t.status === "rejected").length}
-                </Badge>
+            {timesheets.length === 0 ? (
+              <div className="text-center py-8">
+                <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No timesheets found</h3>
+                <p className="text-muted-foreground">
+                  You haven't created any timesheets yet. Start by creating your first timesheet.
+                </p>
               </div>
-              <Button>Create New Timesheet</Button>
-            </div>
-
+            ) : (
+              <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Period</TableHead>
+                      <TableHead>Week</TableHead>
                   <TableHead>Total Hours</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Submitted</TableHead>
@@ -153,13 +166,11 @@ const TimesheetList = ({
                   <TableRow key={timesheet.id}>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{timesheet.id}</div>
+                            <div className="font-medium">
+                              {formatDate(timesheet.weekStarting)} - {formatDate(getWeekEnding(timesheet.weekStarting))}
+                            </div>
                         <div className="text-sm text-muted-foreground">
-                          {new Date(
-                            timesheet.weekStarting,
-                          ).toLocaleDateString()}{" "}
-                          -{" "}
-                          {new Date(timesheet.weekEnding).toLocaleDateString()}
+                              Week of {formatDate(timesheet.weekStarting)}
                         </div>
                       </div>
                     </TableCell>
@@ -170,52 +181,53 @@ const TimesheetList = ({
                       <div className="flex items-center gap-2">
                         {getStatusIcon(timesheet.status)}
                         <Badge variant={getStatusVariant(timesheet.status)}>
-                          {timesheet.status.charAt(0).toUpperCase() +
-                            timesheet.status.slice(1)}
+                              {timesheet.status.charAt(0).toUpperCase() + timesheet.status.slice(1)}
                         </Badge>
                       </div>
                       {timesheet.rejectionReason && (
-                        <div className="text-xs text-red-600 mt-1">
+                            <div className="text-sm text-red-600 mt-1">
                           {timesheet.rejectionReason}
                         </div>
                       )}
                     </TableCell>
                     <TableCell>
-                      {timesheet.submittedDate ? (
-                        <div className="text-sm">
-                          {new Date(
-                            timesheet.submittedDate,
-                          ).toLocaleDateString()}
+                          {timesheet.submittedAt ? (
+                            <div>
+                              <div className="font-medium">
+                                {formatDate(timesheet.submittedAt)}
+                              </div>
+                              {timesheet.approvedAt && (
+                                <div className="text-sm text-muted-foreground">
+                                  Approved: {formatDate(timesheet.approvedAt)}
+                                </div>
+                              )}
                         </div>
                       ) : (
-                        <span className="text-muted-foreground text-sm">
-                          Not submitted
-                        </span>
+                            <span className="text-muted-foreground">Not submitted</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-2">
+                          <div className="flex items-center gap-2">
                         <Button
+                              variant="ghost"
                           size="sm"
-                          variant="outline"
                           onClick={() => onView?.(timesheet.id)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {(timesheet.status === "draft" ||
-                          timesheet.status === "rejected") && (
+                            {timesheet.status === 'DRAFT' && (
                           <Button
+                                variant="ghost"
                             size="sm"
-                            variant="outline"
                             onClick={() => onEdit?.(timesheet.id)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                         )}
-                        {timesheet.status === "approved" && (
+                            {timesheet.status === 'APPROVED' && (
                           <Button
+                                variant="ghost"
                             size="sm"
-                            variant="outline"
                             onClick={() => onDownload?.(timesheet.id)}
                           >
                             <Download className="h-4 w-4" />
@@ -228,8 +240,10 @@ const TimesheetList = ({
               </TableBody>
             </Table>
           </div>
+            )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };

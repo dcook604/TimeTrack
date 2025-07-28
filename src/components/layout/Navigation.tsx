@@ -3,20 +3,34 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Home, Clock, FileText, Calendar, Settings, User } from "lucide-react";
+import { 
+  Home, 
+  Clock, 
+  FileText, 
+  Calendar, 
+  Settings, 
+  User, 
+  Users, 
+  Shield,
+  BarChart3
+} from "lucide-react";
 
 interface NavigationProps {
   currentView?: string;
   onViewChange?: (view: string) => void;
   pendingTimesheets?: number;
+  isManager?: boolean;
+  isAdmin?: boolean;
 }
 
 const Navigation = ({
   currentView = "dashboard",
   onViewChange,
   pendingTimesheets = 2,
+  isManager = false,
+  isAdmin = false,
 }: NavigationProps) => {
-  const navItems = [
+  const baseNavItems = [
     {
       id: "dashboard",
       label: "Dashboard",
@@ -42,13 +56,45 @@ const Navigation = ({
       icon: Calendar,
       description: "Manage time off",
     },
+  ];
+
+  const managerNavItems = [
     {
-      id: "profile",
-      label: "Profile",
-      icon: User,
-      description: "Account settings",
+      id: "manager",
+      label: "Manager Dashboard",
+      icon: BarChart3,
+      description: "Team management and approvals",
     },
   ];
+
+  const adminNavItems = [
+    {
+      id: "admin",
+      label: "User Management",
+      icon: Users,
+      description: "Manage system users",
+    },
+  ];
+
+  const profileNavItem = {
+    id: "profile",
+    label: "Profile",
+    icon: User,
+    description: "Account settings",
+  };
+
+  // Build navigation items based on user role
+  let navItems = [...baseNavItems];
+  
+  if (isManager) {
+    navItems = [...navItems, ...managerNavItems];
+  }
+  
+  if (isAdmin) {
+    navItems = [...navItems, ...adminNavItems];
+  }
+  
+  navItems.push(profileNavItem);
 
   return (
     <div className="bg-card border-r border-border w-64 min-h-screen p-4">
@@ -57,6 +103,22 @@ const Navigation = ({
         <p className="text-sm text-muted-foreground">
           Canadian Labour Compliance
         </p>
+        {isAdmin && (
+          <div className="mt-2">
+            <Badge className="bg-red-100 text-red-800 text-xs">
+              <Shield className="h-3 w-3 mr-1" />
+              Admin
+            </Badge>
+          </div>
+        )}
+        {isManager && !isAdmin && (
+          <div className="mt-2">
+            <Badge className="bg-blue-100 text-blue-800 text-xs">
+              <BarChart3 className="h-3 w-3 mr-1" />
+              Manager
+            </Badge>
+          </div>
+        )}
       </div>
 
       <nav className="space-y-2">
@@ -110,6 +172,12 @@ const Navigation = ({
             <span>Province:</span>
             <span>Ontario</span>
           </div>
+          {isManager && (
+            <div className="flex justify-between">
+              <span>Pending Approvals:</span>
+              <span className="text-orange-600 font-medium">5</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
