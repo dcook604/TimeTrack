@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-context7"],
+      "env": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+      }
+    },
+    "coolify": {
+      "command": "npx",
+      "args": ["-y", "coolify-mcp-server"],
+      "env": {
+        "COOLIFY_BASE_URL": "YOUR_COOLIFY_BASE_URL",
+        "COOLIFY_TOKEN": "YOUR_COOLIFY_TOKEN"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+} 
