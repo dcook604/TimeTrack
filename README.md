@@ -141,7 +141,46 @@ src/
 
 ## 🤖 MCP Integration
 
-This project includes Model Context Protocol (MCP) integration with Context7 for enhanced AI assistance. See [MCP_SETUP.md](./MCP_SETUP.md) for configuration details.
+This project includes Model Context Protocol (MCP) integration with Context7 and Coolify for enhanced AI assistance.
+
+### Setup MCP Configuration
+
+1. **Copy the template file:**
+   ```bash
+   cp mcp.example.json mcp.json
+   ```
+
+2. **Configure your tokens:**
+   - Get your Context7 API key from [Context7](https://context7.com)
+   - Get your Coolify token from your Coolify dashboard
+   - Update the values in `mcp.json`
+
+3. **Example configuration:**
+   ```json
+   {
+     "mcpServers": {
+       "context7": {
+         "command": "npx",
+         "args": ["-y", "@modelcontextprotocol/server-context7"],
+         "env": {
+           "CONTEXT7_API_KEY": "your-context7-api-key"
+         }
+       },
+       "coolify": {
+         "command": "npx",
+         "args": ["-y", "coolify-mcp-server"],
+         "env": {
+           "COOLIFY_BASE_URL": "http://your-coolify-instance:8000/",
+           "COOLIFY_TOKEN": "your-coolify-token"
+         },
+         "disabled": false,
+         "autoApprove": []
+       }
+     }
+   }
+   ```
+
+**Note:** `mcp.json` is not tracked in Git for security reasons. See [MCP_SETUP.md](./MCP_SETUP.md) for detailed configuration instructions.
 
 ## 🧪 Testing
 
