@@ -86,7 +86,11 @@ export default function DashboardPage() {
             <CardDescription>{error}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => window.location.reload()}>
+            <Button onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.location.reload()
+              }
+            }}>
               Try Again
             </Button>
           </CardContent>
