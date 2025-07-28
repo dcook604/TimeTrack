@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { authenticateRequest, hasRole } from '@/lib/auth'
 
+// Force dynamic rendering to prevent static generation issues
+export const dynamic = 'force-dynamic'
+
 // GET /api/dashboard - Get dashboard statistics
 export async function GET(request: NextRequest) {
   try {

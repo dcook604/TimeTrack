@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma'
 import { authenticateRequest } from '@/lib/auth'
 import { z } from 'zod'
 
+// Force dynamic rendering to prevent static generation issues
+export const dynamic = 'force-dynamic'
+
 const updateProfileSchema = z.object({
   fullName: z.string().min(1, 'Full name is required').optional(),
   province: z.string().min(1, 'Province is required').optional(),

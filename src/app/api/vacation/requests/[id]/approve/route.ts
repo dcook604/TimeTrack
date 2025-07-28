@@ -4,6 +4,9 @@ import { authenticateRequest, hasRole } from '@/lib/auth'
 import { z } from 'zod'
 import { sendVacationRequestStatusNotification } from '@/lib/email'
 
+// Force dynamic rendering to prevent static generation issues
+export const dynamic = 'force-dynamic'
+
 const approveVacationRequestSchema = z.object({
   action: z.enum(['APPROVE', 'REJECT']),
   reviewComments: z.string().optional()
