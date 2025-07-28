@@ -52,3 +52,6 @@ node_modules/
 .github/
 
 /src/generated/prisma
+
+# MCP Configuration (contains sensitive tokens)
+mcp.json
