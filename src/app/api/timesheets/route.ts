@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma'
 import { authenticateRequest } from '@/lib/auth'
 import { z } from 'zod'
 
+// Force dynamic rendering to prevent static generation issues
+export const dynamic = 'force-dynamic'
+
 const createTimesheetSchema = z.object({
   weekStarting: z.string().refine((date) => !isNaN(Date.parse(date)), {
     message: 'Invalid date format'

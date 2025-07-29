@@ -4,6 +4,9 @@ import { authenticateRequest, hasRole } from '@/lib/auth'
 import { hashPassword } from '@/lib/auth'
 import { z } from 'zod'
 
+// Force dynamic rendering to prevent static generation issues
+export const dynamic = 'force-dynamic'
+
 const createUserSchema = z.object({
   email: z.string().email('Invalid email format'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
