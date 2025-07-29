@@ -11,7 +11,8 @@ import {
   sanitizeEmail,
   sanitizeDate,
   sanitizeTime,
-  sanitizeNumber
+  sanitizeNumber,
+  validateBusinessRules
 } from '@/lib/data-integrity';
 import { 
   createUserSchema, 
@@ -46,7 +47,7 @@ export function createValidationMiddleware(options: ValidationMiddlewareOptions)
       
       // Additional business rule validation
       if (options.validateBusinessRules) {
-        const businessRuleCheck = validateBusinessRules(validatedData, options.schema);
+        const businessRuleCheck = validateBusinessRules(validatedData, []);
         if (!businessRuleCheck.isValid) {
           return NextResponse.json(
             { 
@@ -132,40 +133,6 @@ function sanitizeInputData(data: any): any {
   }
   
   return sanitized;
-}
-
-// Validate business rules
-function validateBusinessRules(data: any, schema: z.ZodSchema): { isValid: boolean; errors: string[] } {
-  const errors: string[] = [];
-  
-  // Check if it's a user-related schema
-  if (schema === createUserSchema || schema === updateUserSchema) {
-    const userCheck = validateUserData(data);
-    if (!userCheck.isValid) {
-      errors.push(...userCheck.errors);
-    }
-  }
-  
-  // Check if it's a timesheet-related schema
-  if (schema === createTimesheetSchema) {
-    const timesheetCheck = validateTimesheetData(data);
-    if (!timesheetCheck.isValid) {
-      errors.push(...timesheetCheck.errors);
-    }
-  }
-  
-  // Check if it's a vacation request schema
-  if (schema === vacationRequestSchema) {
-    const vacationCheck = validateVacationRequestData(data);
-    if (!vacationCheck.isValid) {
-      errors.push(...vacationCheck.errors);
-    }
-  }
-  
-  return {
-    isValid: errors.length === 0,
-    errors,
-  };
 }
 
 // Predefined validation middlewares
