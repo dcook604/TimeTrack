@@ -1,67 +1,104 @@
 # Timetracker Environment Variables Guide
 
-## Required Environment Variables for Production
+## Required Environment Variables for Coolify Deployment
 
-### Essential Variables (Already Configured)
-- `JWT_SECRET` - Secret key for JWT token signing
-- `DATABASE_URL` - PostgreSQL database connection string
-- `NEXTAUTH_URL` - Base URL of your application
+### Essential Database Variables
+```
+POSTGRES_DB=timetracker
+POSTGRES_USER=timetracker
+POSTGRES_PASSWORD=your-secure-password-change-this
+DATABASE_URL=postgresql://timetracker:your-secure-password-change-this@postgres:5432/timetracker?schema=public
+```
 
-### Missing Variables (Add to Coolify)
-
-#### 1. Node Environment
+### Essential Application Variables
 ```
 NODE_ENV=production
+APP_NAME=TimeTracker
+DOMAIN=time.spectrum4.ca
+NEXTAUTH_URL=https://time.spectrum4.ca
 ```
 
-#### 2. Email Configuration (Optional but Recommended)
+### Security & Authentication Variables
+```
+JWT_SECRET=your-super-secret-jwt-key-change-in-production-use-long-random-string
+NEXTAUTH_SECRET=your-super-secret-nextauth-key-change-in-production
+```
+
+### Email Configuration Variables (Required for Production)
 ```
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-SMTP_FROM=noreply@timetracker.com
+SMTP_PASS=your-app-specific-password
+SMTP_FROM=noreply@time.spectrum4.ca
 ```
 
-#### 3. Development Tools (Optional)
+### SSL Certificate Configuration (for Traefik)
 ```
+ACME_EMAIL=your-email@example.com
+```
+
+### Optional Development Variables
+```
+LOCAL_DOMAIN=localhost
+LOCAL_TRAEFIK_DOMAIN=timetracker.localhost
+TRAEFIK_DOMAIN=traefik.localhost
 NEXT_PUBLIC_TEMPO=false
 ```
 
-## Recommended Coolify Configuration
+## Coolify Configuration Steps
 
-### Remove These Variables (Not Needed):
-- `NEXTAUTH_SECRET` - Your app doesn't use NextAuth, only custom JWT
+### 1. In Coolify Dashboard - Environment Variables Section
+Add all the required variables above with your actual values:
 
-### Add These Variables:
-1. `NODE_ENV=production`
-2. `SMTP_HOST=smtp.gmail.com` (or your email provider)
-3. `SMTP_PORT=587`
-4. `SMTP_SECURE=false`
-5. `SMTP_USER=your-email@gmail.com`
-6. `SMTP_PASS=your-app-password`
-7. `SMTP_FROM=noreply@timetracker.com`
+1. **Database Configuration:**
+   - `POSTGRES_DB=timetracker`
+   - `POSTGRES_USER=timetracker` 
+   - `POSTGRES_PASSWORD=your-secure-password-change-this`
+   - `DATABASE_URL=postgresql://timetracker:your-secure-password-change-this@postgres:5432/timetracker?schema=public`
 
-## Environment Variable Priority
+2. **Application Configuration:**
+   - `NODE_ENV=production`
+   - `APP_NAME=TimeTracker`
+   - `DOMAIN=time.spectrum4.ca`
+   - `NEXTAUTH_URL=https://time.spectrum4.ca`
 
-The application uses these fallbacks:
-- `JWT_SECRET` defaults to `'your-secret-key'` if not set
-- `SMTP_HOST` defaults to `'localhost'` if not set
-- `SMTP_PORT` defaults to `587` if not set
-- `SMTP_SECURE` defaults to `false` if not set
-- `SMTP_FROM` defaults to `'noreply@timetracker.com'` if not set
+3. **Security Configuration:**
+   - `JWT_SECRET=your-super-secret-jwt-key-change-in-production-use-long-random-string`
+   - `NEXTAUTH_SECRET=your-super-secret-nextauth-key-change-in-production`
+
+4. **Email Configuration:**
+   - `SMTP_HOST=smtp.gmail.com`
+   - `SMTP_PORT=587`
+   - `SMTP_SECURE=false`
+   - `SMTP_USER=your-email@gmail.com`
+   - `SMTP_PASS=your-app-specific-password`
+   - `SMTP_FROM=noreply@time.spectrum4.ca`
+
+5. **SSL Configuration:**
+   - `ACME_EMAIL=your-email@example.com`
+
+### 2. Variables with Default Values
+These variables have defaults in docker-compose.yml and are optional:
+- `NODE_ENV` (defaults to `production`)
+- `APP_NAME` (defaults to `TimeTracker`)
+- `SMTP_SECURE` (defaults to `false`)
+- `LOCAL_DOMAIN` (defaults to `localhost`)
+- `LOCAL_TRAEFIK_DOMAIN` (defaults to `timetracker.localhost`)
+- `TRAEFIK_DOMAIN` (defaults to `traefik.localhost`)
 
 ## Security Notes
 
 1. **JWT_SECRET**: Should be a strong, random string (32+ characters)
-2. **DATABASE_URL**: Should include proper credentials
+2. **DATABASE_URL**: Should include proper credentials and match other DB variables
 3. **SMTP_PASS**: Use app-specific passwords, not your main password
-4. **NEXTAUTH_SECRET**: Can be removed as you're not using NextAuth
+4. **POSTGRES_PASSWORD**: Use a strong, unique password for production
 
 ## Testing the Configuration
 
-After updating the environment variables:
+After updating the environment variables in Coolify:
 1. Redeploy the application in Coolify
 2. Clear browser cache and cookies
-3. Try logging in with the demo credentials
+3. Check application logs for any missing environment variable errors
+4. Try logging in with the demo credentials
