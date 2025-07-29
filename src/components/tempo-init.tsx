@@ -5,8 +5,13 @@ import { useEffect } from "react";
 
 export function TempoInit() {
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_TEMPO) {
-      TempoDevtools.init();
+    // Only initialize Tempo in development and when explicitly enabled
+    if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_TEMPO) {
+      try {
+        TempoDevtools.init();
+      } catch (error) {
+        console.warn('Tempo devtools failed to initialize:', error);
+      }
     }
   }, []);
 

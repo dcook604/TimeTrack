@@ -124,9 +124,9 @@ export default function LoginPage() {
 
         <div className="text-center text-xs text-gray-500">
           <p>Demo Accounts:</p>
-          <p>Employee: employee@timetracker.com / password123</p>
-          <p>Manager: manager@timetracker.com / password123</p>
-          <p>Admin: admin@timetracker.com / password123</p>
+          <p>Admin: admin@timetracker.local / admin123</p>
+          <p>Manager: manager@timetracker.local / manager123</p>
+          <p>Employee: john.doe@timetracker.local / employee123</p>
         </div>
       </div>
     </div>
