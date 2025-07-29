@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { apiClient } from '@/lib/api-client'
 
 export interface User {
@@ -42,6 +42,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [authChecked, setAuthChecked] = useState(false)
 
   // Role hierarchy for permission checking
   const roleHierarchy = {
@@ -109,16 +110,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
-  // Check authentication status on mount
+  // Check authentication status on mount (only once)
   useEffect(() => {
     const checkAuth = async () => {
-      setLoading(true)
-      await refreshUser()
-      setLoading(false)
+      if (!authChecked) {
+        setLoading(true)
+        try {
+          await refreshUser()
+        } catch (error) {
+          console.error('Initial auth check failed:', error)
+          setUser(null)
+        } finally {
+          setLoading(false)
+          setAuthChecked(true)
+        }
+      }
     }
 
     checkAuth()
-  }, [])
+  }, [authChecked])
 
   const value: AuthContextType = {
     user,
