@@ -65,9 +65,14 @@ export async function POST(request: NextRequest) {
       token
     })
 
+    // Check if the request is secure (HTTPS) or if we're in development
+    const isSecure = request.headers.get('x-forwarded-proto') === 'https' || 
+                     request.headers.get('x-forwarded-ssl') === 'on' ||
+                     process.env.NODE_ENV !== 'production'
+
     response.cookies.set('auth-token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isSecure,
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 // 7 days
     })
