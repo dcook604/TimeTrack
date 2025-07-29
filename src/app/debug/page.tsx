@@ -22,7 +22,9 @@ export default function DebugPage() {
       const data = await response.json()
       setAuthTest(data)
     } catch (error) {
-      setAuthTest({ error: error.message })
+      setAuthTest({ 
+        error: error instanceof Error ? error.message : 'Unknown error occurred' 
+      })
     }
   }
 
@@ -66,6 +68,12 @@ export default function DebugPage() {
                 <span>Authenticated:</span>
                 <Badge variant={isAuthenticated ? "default" : "destructive"}>
                   {isAuthenticated ? "Yes" : "No"}
+                </Badge>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Auth Checked:</span>
+                <Badge variant={authChecked ? "default" : "secondary"}>
+                  {authChecked ? "Yes" : "No"}
                 </Badge>
               </div>
               <div className="flex justify-between items-center">
