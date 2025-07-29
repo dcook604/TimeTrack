@@ -6,6 +6,9 @@ import { validateVacationRequest, getValidatedData } from '@/middleware/validati
 import { validateOverlappingDates, validateVacationBalance } from '@/lib/validation-schemas';
 import { handleApiError, createError, ErrorCodes } from '@/lib/error-handler';
 
+// Force dynamic rendering to prevent static generation issues
+export const dynamic = 'force-dynamic';
+
 const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
