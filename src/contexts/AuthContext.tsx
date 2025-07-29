@@ -17,6 +17,7 @@ export interface User {
 interface AuthContextType {
   user: User | null
   loading: boolean
+  authChecked: boolean
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
   register: (email: string, password: string, fullName: string, province: string) => Promise<{ success: boolean; error?: string }>
@@ -133,6 +134,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const value: AuthContextType = {
     user,
     loading,
+    authChecked,
     login,
     logout,
     register,
