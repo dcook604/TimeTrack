@@ -10,13 +10,13 @@ export default function Page() {
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading) {
-      if (!isAuthenticated) {
-        router.push('/login')
-      }
+    // Only redirect if we're not loading and definitely not authenticated
+    if (!loading && !isAuthenticated) {
+      router.push('/login')
     }
   }, [isAuthenticated, loading, router])
 
+  // Show loading spinner while checking authentication
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -25,8 +25,9 @@ export default function Page() {
     )
   }
 
+  // Don't render anything while redirecting
   if (!isAuthenticated) {
-    return null // Will redirect to login
+    return null
   }
 
   return <AppLayout />

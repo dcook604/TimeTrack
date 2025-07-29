@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2 } from 'lucide-react'
+import { Loader2, RefreshCw } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -17,12 +17,27 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   
-  const { login, isAuthenticated } = useAuth()
+  const { login, isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (only after loading is complete)
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.push('/dashboard')
+    }
+  }, [isAuthenticated, authLoading, router])
+
+  // Show loading spinner while checking authentication
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      </div>
+    )
+  }
+
+  // Don't render login form if already authenticated
   if (isAuthenticated) {
-    router.push('/dashboard')
     return null
   }
 
@@ -43,6 +58,20 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const clearCacheAndReload = () => {
+    // Clear all cookies
+    document.cookie.split(";").forEach(function(c) { 
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+    });
+    
+    // Clear localStorage and sessionStorage
+    localStorage.clear();
+    sessionStorage.clear();
+    
+    // Reload the page
+    window.location.reload();
   }
 
   return (
@@ -127,6 +156,19 @@ export default function LoginPage() {
           <p>Admin: admin@timetracker.local / admin123</p>
           <p>Manager: manager@timetracker.local / manager123</p>
           <p>Employee: john.doe@timetracker.local / employee123</p>
+        </div>
+
+        {/* Clear Cache Button */}
+        <div className="text-center">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={clearCacheAndReload}
+            className="text-xs"
+          >
+            <RefreshCw className="mr-2 h-3 w-3" />
+            Clear Cache & Reload
+          </Button>
         </div>
       </div>
     </div>
